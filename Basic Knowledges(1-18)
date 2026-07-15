@@ -1,0 +1,458 @@
+Market-maker Basic Knowledges (Chinese/English /python) 做市商基础知识
+ 一、订单簿（Order Book）
+盘口一档价格
+best_bid = ob['bids'][0][0]
+最优买一价 = 订单簿买一价
+Best Bid Price
+
+ask_vol = ob['asks'][0][1]
+一档卖单数量 = 最优卖一对应的挂单数量
+Top ask volume = Order quantity at best ask level
+
+spread = best_ask - best_bid
+绝对价差 = 最优卖一价 − 最优买一价
+Absolute Spread = Best Ask Price − Best Bid Price
+
+spread_bp = (best_ask - best_bid) / best_bid * 10000
+基点价差 = (最优卖一价 − 最优买一价) ÷ 最优买一价 × 10000
+Spread (bp) = (Best Ask − Best Bid) / Best Bid * 10000
+价差分级参考：
+< 2 bp｜流动性极好
+2 - 5 bp｜正常
+5 - 10 bp｜流动性偏紧
+> 10 bp｜流动性差/波动剧烈
+补充：1% = 100 bp，价差越小买卖报价越贴合
+
+mid_price = (best_bid + best_ask) / 2
+中间价 = (最优买一价 + 最优卖一价) ÷ 2
+Mid Price = (Best Bid + Best Ask) / 2
+
+核心理解：立刻买入吃卖单（Ask侧），立刻卖出吃买单（Bid侧）
+
+bid_depth = sum(b[1] for b in ob['bids'])
+Total Bid Depth = Sum of volume of all bid tiers in order book
+ask_depth = sum(a[1] for a in ob['asks'])
+Total Ask Depth = Sum of volume of all ask tiers in order book
+
+total_depth = bid_depth + ask_depth
+
+bid_ask_ratio = bid_depth / ask_depth if ask_depth > 0 else None
+买卖深度比 = 买方总深度 ÷ 卖方总深度
+Bid-Ask Depth Ratio = Total Bid Depth / Total Ask Depth
+
+usd_depth = sum (price * volume for price, volume in order_levels)
+美元价值深度 = 每档价格 × 每档数量全部相加
+USD value depth = Σ(price × volume)
+
+btc_eth_depth_ratio = btc_data['total_depth'] / eth_data['total_depth']
+BTC/ETH总深度比值 = BTC订单簿总深度 ÷ ETH订单簿总深度
+BTC/ETH Depth Ratio = BTC Total Depth / ETH Total Depth
+
+bid_depth_5 = sum(b[1] for b in bids[:5])
+前5档买方总深度 Total 5-level bid depth 
+
+ask_depth_5 = sum(a[1] for a in asks[:5])
+前5档卖方总深度 Total 5-level ask depth 
+
+ratio = bid_depth_5 / ask_depth_5 if ask_depth_5 > 0 else 0
+前5档买卖深度比 = 前5档买方总深度 ÷ 前5档卖方总深度，卖方深度为0时比值取0
+Bid-Ask Depth Ratio (Top5) = Total 5-level bid depth / Total 5-level ask depth, set to 0 if ask depth equals zero
+
+bid_vol = sum([v for p, v in bids[:levels]])
+指定档位买方总深度 = 订单簿前N档所有买单数量求和
+Total Bid Volume for Target Levels = Sum volume of first N bid tiers
+ask_vol = sum([v for p, v in asks[:levels]])
+
+深度与价差：
+深度厚 + 价差小 → 市场健康
+深度厚 + 价差大 → 有人挂厚单但不给好价（“墙”）
+深度薄 + 价差小 → 短期可能大波动
+深度薄 + 价差大 → 流动性危机
+
+二、买卖比 & 不平衡度（Bid-Ask Ratio / Imbalance）
+bid_ask_ratio = total_bid_depth / total_ask_depth
+Bid-Ask Ratio = Total Bid Depth / Total Ask Depth
+
+imbalance_pct = (total_bid_depth - total_ask_depth) / (total_bid_depth + total_ask_depth) * 100
+全档位不平衡度（%）= (买方总深度 − 卖方总深度) ÷ (买方总深度 + 卖方总深度) × 100
+Full-range Order Book Imbalance (%) = (Total Bid Depth − Total Ask Depth) / (Total Bid Depth + Total Ask Depth) * 100
+
+imbalance = (bid_volume_10 - ask_volume_10) / (bid_volume_10 + ask_volume_10) * 100
+Order Book Imbalance (%) = (Top10 Bid Volume − Top10 Ask Volume) / (Top10 Bid Volume + Top10 Ask Volume) * 100
+
+imbalance = (bid_vol - ask_vol) / (bid_vol + ask_vol) * 100
+Order Book Imbalance (%) = (Target Bid Volume − Target Ask Volume) / (Target Bid Volume + Target Ask Volume) * 100
+
+分层信号参考：
+买卖比＞1.2、不平衡度＞+10%｜买方占优
+买卖比0.8-1.2、不平衡度±10%｜盘口均衡
+买卖比＜0.8、不平衡度＜-10%｜卖方占优
+三层分析框架：
+前5档：几分钟，表层流动性，做市商盘口维护
+前10档：几十分钟，主动交易者挂单
+前20档：数小时至单日，大资金布局信号
+三层信号同向可信度高，信号相反大概率存在虚假挂单
+
+三、滑点（Slippage）
+take = min(size, qty - filled)
+当前档位成交数量 = 当前档位可卖数量、剩余需买入数量两者取最小值
+Filled quantity per level = Minimum value of level volume and remaining target quantity
+
+filled += take
+累计已成交数量 = 原有累计成交数量 + 当前档位成交数量
+Cumulative filled volume = Original cumulative volume + Filled quantity of current level
+
+total_cost += take * price
+Total purchase cost = Original total cost + Filled quantity × Current level price
+
+avg_price = total_cost / filled
+Average filled price = Total purchase cost / Cumulative filled volume
+
+avg_fill_price = sum (price * volume for price, volume in fills) /total_fill_volume
+VWAP(成交)均价 = Σ(各档价格×成交量) ÷ 总成交量
+
+slip = avg_price - best_ask
+绝对滑点 = 实际成交均价 − 最优卖一价
+Absolute slippage = Average filled price − Best ask price
+
+slip_pct = (slip / best_ask) * 100
+
+slippage_bp = (best_price - avg_fill_price) /best_price * 10000
+Slippage (bp) = (Best Price − Average Filled Price) ÷ Best Price × 10000
+
+buy_slippage_bp = (best_ask - avg_buy_price) /best_ask * 10000
+sell_slippage_bp = (best_bid - avg_sell_price) /best_bid * 10000
+
+滑点分级：
+＜5bp 正常；5-20bp大单风险；＞20bp流动性极差
+滑点核心影响因素：订单规模越大滑点越高，盘口深度越薄滑点越高
+
+四、做市商基础报价与单次循环盈利
+Basic Market Maker Quotes & Single Cycle Profit
+bid_price = mid_price * (1 - spread_pct/2)
+做市买单报价 = 中间价 × (1 − 价差比例 ÷ 2)
+Market Maker Bid Quote = Mid Price * (1 - Spread Percentage / 2)
+ask_price = mid_price * (1 + spread_pct/2)
+
+theo_spread = ask_price - bid_price
+Theoretical Absolute Spread = Maker Ask Quote − Maker Bid Quote
+
+theo_spread_bp = (ask_price - bid_price) / bid_price * 10000
+理论基点价差 = (做市买卖报价差值 ÷ 做市买单报价) × 10000
+Theoretical Spread (bp) = (Maker Ask - Maker Bid) / Maker Bid * 10000
+
+single_cycle_profit = ask_price - bid_price
+单次完整做市循环单位盈利 = 做市卖报价 − 做市买报价
+Profit per Complete Market Maker Cycle = Maker Ask Quote − Maker Bid Quote
+做市商行情适配：震荡行情最优，单边行情易单边持仓被套；价差策略分为固定价差、动态波动率调节价差
+
+五、价格随机扰动与单笔成交指标
+Random Price Disturbance & Single Trade Metrics
+noise = random.gauss(0, 120)
+价格随机扰动 = 服从均值0、标准差120的正态分布随机数
+Price Noise = Random number following normal distribution with mean 0 and standard deviation 120
+
+price = round(current_price + noise, 2)
+单笔成交价格 = 基准现价 + 价格扰动，保留两位小数
+Single Trade Price = Base Current Price + Price Noise, rounded to 2 decimal places
+
+volume = round(random.uniform(0.1, 2.0), 4)
+单笔成交量 = 0.1至2.0之间均匀随机数，保留四位小数
+Single Trade Volume = Uniform random value between 0.1 and 2.0, rounded to 4 decimal places
+
+六、成交量分布 Volume Profile（VP价值区间）
+bucket = round(price / 10) * 10
+价格档位分组 = 将成交价格归整到最近10美元整数档位
+Price Bucket Grouping = Round trade price to nearest multiple of 10 USD
+
+volume_profile[bucket] += vol
+档位累计成交量 = 当前档位原有成交量 + 本次成交数量
+Cumulative Volume per Bucket = Original bucket volume + Current trade volume
+
+total_vol = sum(volume_profile.values()）
+Total Market Volume = Sum volume of all price buckets
+
+target_vol = total_vol * 0.70
+Target Volume for Value Area = Total Market Volume × 70%
+
+va_percent = (accumulated / total_vol) * 100
+价值区间成交量占比 = 区间累计成交量 ÷ 总成交量 × 100
+Value Area Volume Percentage = Accumulated volume in VA / Total Market Volume × 100
+
+va_range_width = va_high - va_low
+Value Area Width = Upper Value Area Bound − Lower Value Area Bound
+
+price_in_va = (va_low <= current <= va_high)
+Whether Price Is Inside Value Area = Current price ≥ VA lower bound and ≤ VA upper bound
+术语说明：POC成交量最高价格；VA70%成交量区间；VA High价值区上沿；VA Low价值区下沿；价格高于POC多头占优，低于POC空头占优
+
+七、K线均线SMA指标
+close_prices = [candle[4] for candle in ohlcv]
+K线收盘价列表 = 提取每根K线第四个字段（收盘价格）构成序列    注：收盘价格由人为分割时间
+List of Closing Prices = Extract the 4th field (close price) of each K-line candle
+
+简单移动平均值SMA = sum(data[-period:]) / period
+简单移动平均值SMA = 最近N期价格求和 ÷ 周期数
+Simple Moving Average (SMA) = Sum of latest N price values / Period Length
+
+ma5 = sma(close_prices, 5)
+5周期简单移动平均 = 最近5根K线收盘价算术平均值
+5-period SMA = Arithmetic average of closing prices for latest 5 candles
+
+交易信号：短均线上穿长均线金叉看涨；短均线下穿长均线死叉看跌
+做市适配：MA5＞MA20上升趋势，收窄买单价差扩大卖单价差；MA5＜MA20下跌趋势，收窄卖单价差扩大买单价差；均线缠绕震荡行情正常双边报价
+
+八、现货标的基础行情指标
+Spot Underlying Market Indicators
+btc_price = ticker['bitcoin']['usd']
+BTC美元现货价格 = 接口返回BTC对USD实时报价
+BTC Spot Price = Real-time BTC price quoted in USD from API
+
+btc_change = ticker['bitcoin']['usd_24h_change']
+BTC24小时涨跌幅(百分比) = 接口返回24小时价格变动比例
+BTC 24h Price Change (%) = 24-hour price percentage change from API
+
+inflow_value = inflow_7d * btc_price
+7-Day Inflow USD Value = 7-Day Net BTC Inflow Quantity × Current BTC Price
+
+btc_dominance = btc_market_cap /total_market_cap * 100
+BTC.D = BTC Market Cap / Total Market Cap × 100
+BTC.D上升资金避险流入BTC；BTC.D下降资金流向山寨币
+注意区分主动，被动BTC.D
+
+九、永续合约资金费率Perpetual Contract Funding Rate
+rate_pct = rate * 100
+费率解读：正费率多头付费空头；负费率空头付费多头；绝对值超0.1%存在极端单边情绪
+
+十、期货open interest /Volume比值
+oi_vol_ratio = open_interest /volume_24h
+OI/Volume Ratio = Open Interest / 24h Trading Volume
+比值分级：＜0.5健康；0.5-1正常；1-1.5杠杆偏高；1.5-2高杠杆警戒；＞2连环爆仓风险
+
+十一、库存管理、报价偏移引擎全公式
+Full Formulas for Inventory Management & Quote Offset Engine
+inventory += t["qty"]
+持仓库存 = 原有库存数量 + 本次买入数量
+Inventory Balance = Original Inventory Quantity + Current Buy Quantity
+
+inventory -= t["qty"]
+持仓库存 = 原有库存数量 − 本次卖出数量
+Inventory Balance = Original Inventory Quantity − Current Sell Quantity
+
+cost_basis += t["price"] * t["qty"]
+持仓总成本 = 原有持仓成本 + 买入单价 × 买入数量
+Total Cost Basis = Original Cost Basis + Buy Price × Buy Quantity
+
+cost_basis -= avg_cost * t["qty"]
+Remaining Cost Basis = Original Cost Basis − Average Cost × Sell Quantity
+
+sell_value = t["price"] * t["qty"]
+Total Sell Value = Sell Price × Sell Quantity
+
+avg_cost = cost_basis / inventory if inventory > 0 else t["price"]
+持仓平均成本价 = 库存大于0时为总成本÷库存，否则取卖出单价
+Average Cost Basis = Total Cost Basis / Inventory if Inventory > 0 else Sell Price
+
+realized -= t["fee"]
+Realized PnL After Fee Deduction = Current Realized PnL − Trade Fee
+
+unrealized = inventory * current_price - cost_basis
+Unrealized PnL = Inventory Quantity × Current Market Price − Remaining Cost Basis
+
+total_pnl = realized + unrealized
+
+inventory_skew = current_inventory /max_inventory_limit * 100
+库存偏离百分比 = 当前持仓 ÷ 最大持仓限额 × 100%
+Inventory Skew = Current Inventory / Max Inventory Limit × 100%
+
+inventory_deviation = current_inventory - target_neutral_inventory
+库存偏差
+
+inv_deviation = (inventory - target_inventory) / target_inventory
+通用库存偏离度 = (当前库存 − 目标库存) ÷ 目标库存
+
+half_spread = base_spread / 2
+
+price_offset = inventory_skew * base_spread
+报价偏移量 = 库存偏离度 × 基础价差
+Offset = Inventory Skew × Basic Spread
+
+bid_price = mid_price - base_spread / 2 - price_offset
+库存偏移基础买价 = 中间价 - 半价差 − 报价偏移量
+ask_price = mid_price + base_spread / 2 - price_offset
+
+skew = inventory_pct / 100 * max_spread
+库存报价偏移系数 = 库存偏离百分比 ÷ 100 × 最大基础价差
+Inventory Quote Skew Coefficient = Inventory Percentage / 100 × Max Base Spread
+
+bid = mid_price * (1 - max_spread/2 - skew)
+库存调整后买单报价 
+Inventory-Adjusted Bid Quote = Mid Price × (1 − Max Spread/2 − Skew)
+ask = mid_price * (1 + max_spread/2 - skew)
+
+spread_bp = round((ask - bid) / bid * 10000, 2)
+
+skew_bp = round(skew * 10000, 2)
+
+imbalance_signal = (imbalance - 0.5) * 2
+标准化订单簿不平衡信号 = (原始不平衡度 − 0.5) × 2，值域[-1,1]
+Normalized Imbalance Signal = (Raw Imbalance − 0.5) × 2, range [-1,1]
+
+vol_adjustment = 1 + (volatility * vol_coefficient)
+波动率价差调节系数 
+Volatility Spread Adjust Factor = 1 + Volatility × Volatility Coefficient
+
+spread = base_spread_bps * vol_adjustment
+波动率调整基点价差 = 基础基点价差 × 波动率调节系数
+Volatility Adjusted Spread (bps) = Base Spread (bps) × Volatility Adjust Factor
+
+十二、v1固定权重版综合偏移计算
+Composite Skew Calculation – V1 Fixed Weight Version
+skew = -0.6 * inv_deviation - 0.3 * imbalance_signal - 0.1 * funding_signal
+固定权重综合偏移 = 库存、盘口、资金费率固定加权求和
+
+imbalance_signal_contrib = round(-0.3 * imbalance_signal, 3)
+盘口不平衡偏移贡献 = 标准化不平衡信号 × 固定不平衡权重
+Imbalance Skew Contribution = Normalized Imbalance × Fixed Imbalance Weight
+注：全部带负号，是为了信号方向和做市调仓逻辑反向匹配
+bid = mid_price * (1 - spread / 10000 / 2 + skew / 10000)
+固定权重调整后做市买单报价 = 中间价 × (1 − 调整价差一半万份比 + 综合偏移万份比)
+Adjusted Bid Quote = Mid Price × (1 − Spread/2/10000 + Skew/10000)
+ask = mid_price * (1 + spread / 10000 / 2 + skew / 10000)
+
+十三、v2动态波动率加权版偏移计算
+Skew Calculation – V2 Dynamic Volatility Weighted Version
+inventory_tolerance = 1.0 / (1 + volatility * 20)
+波动越高库存容忍度越低
+Inventory Tolerance Factor = 1 / (1 + Volatility × 20)
+
+adjusted_inv_weight = 0.6 * (1 + volatility * 10)
+动态库存权重 = 基础库存权重 × (1 + 波动率 × 10)，高波动放大库存权重
+Dynamic Inventory Weight = Base Inventory Weight × (1 + Volatility × 10)
+
+skew = (-adjusted_inv_weight * inv_deviation - 0.3 * imbalance_signal - 0.1 * funding_signal) / total_weight
+归一化动态综合偏移 = 各信号加权总和 ÷ 总权重和
+
+inventory_signal = round((-adjusted_inv_weight * inv_deviation) / total_weight, 3)
+归一化库存贡献 = 动态库存加权项 / 总权重
+Normalized Inventory Contribution = Dynamic weighted inventory term / Total Weight Sum
+
+十四、双边做市单笔交易盈亏公式
+P&L Formulas for Single Round-Trip Market-Making Trades
+buy_cost = bid_price * size
+买入名义总成本 = 买单成交价 × 交易数量
+Nominal Buy Cost = Bid Price × Trade Size
+sell_proceed = ask_price * size
+
+buy_net = buy_cost * (1 + maker_fee)
+买入实际净支出 = 买入名义总成本 × (1 + Maker费率，负费率代表返佣)
+Net Buy Outlay = Nominal Buy Cost × (1 + Maker Fee Rate)
+sell_net = sell_proceed * (1 - maker_fee)
+
+spread_pnl = (ask_price - bid_price) * size  纯价差毛利 
+Gross Spread Profit = (Ask Price − Bid Price) × Trade Size
+
+maker_rebate_buy = -buy_cost * maker_fee
+买入侧Maker返佣 = −买入名义总成本 × Maker费率
+Buy Side Maker Rebate = −Nominal Buy Cost × Maker Fee Rate
+maker_rebate_sell = -sell_proceed * maker_fee
+
+total_rebate = maker_rebate_buy + maker_rebate_sell
+
+net_pnl = spread_pnl + total_rebate
+Net PnL per Round Trip = Gross Spread Profit + Total Maker Rebate
+
+Total trading cost = taker volume × taker fee rate + maker volume × maker fee rate
+
+收益率=净收益/总成交额×100%
+Return = Net P&L / total turnover × 100%
+
+净收益=价差捕捉+maker返佣-taker费用
+NetP&L=Spread capture+maker rebate-taker fee
+
+十五、虚假挂单Spoofing风险测算
+single_position_value = price * single_size
+单笔假单名义价值 = 标的单价 × 单次挂单数量
+Single Fake Order Notional Value = Market Price × Single Fake Size
+
+Spoofing幌骗识别定性特征：流动性越低虚假挂单越多，交割/资金费率结算日虚假挂单量上升；虚假大单存续时间通常小于2秒，撤单率超90%
+
+高幌骗风险时段：欧美深夜01:00-04:00、流动性断层17:30-20:00、资金费率结算前5:40-6:00、CME交割日07:00-09:00、期权到期最后一小时、周末全天、法定节假日、行情暴涨暴跌中途
+
+十六、回测backtesting
+volatility = df['returns'].std() 
+波动率 (Volatility) = 收益率的标准差 
+od Rolling Mean of (High - Low)
+
+pnl = (ask_price - bid_price) * size 
+PnL(Round Trip PnL) = (Ask Price - Bid Price) x Size
+
+total_pnl = df_trades['pnl'].sum() 
+
+win_rate = (df_trades['pnl'] > 0).mean() 
+胜率 = 盈利交易数 / 总交易数 
+Win Rate = Profitable Trades / Total Trades
+
+max_dd = cumulative.cummin().min() 
+最大回撤 = 累计收益曲线的最低点 
+Max Drawdown = Minimum of Cumulative PnL Curve
+
+sharpe = (avg_return / std_return) * np.sqrt(8760) 
+夏普比率 = (平均收益 / 收益标准差) x 根号8760（年化到小时数据） 
+Sharpe Ratio = (Avg Return / Std Return) x sqrt(8760) (annualized for hourly data)
+十七，逆向选择（Adverse Selection）
+一、定义：信息不对称下，做市商和掌握内幕、大单、宏观消息的对手成交，被动逆势买卖，收益受损，该成本是做市商主要隐性亏损来源，和价差收益负相关
+二、核心指标与盈亏归因
+逆向选择成本由知情交易总亏损除以总交易笔数计算得出。
+做市总盈亏分为三部分：价差交易收益、逆向选择带来的盈亏、持仓库存价格浮动盈亏。
+若逆向选择亏损规模接近或超过价差收益，代表做市策略逆向选择风险严重，持续被知情交易者套利。
+三、防范方法
+1 毒流识别
+三类特征：订单规模远大于市场平均、顺着行情趋势激进成交、市场波动率显著高于常态，满足任意一条即判定为风险订单。
+2 动态价差调整
+依托逆向选择风险系数放大基础报价价差，风险越高，买卖价差设置越宽，以此对冲潜在亏损。
+3 挂单量调整
+风险较高阶段减少盘口挂单额度，不完全撤单，兼顾做市收入与风险敞口控制。
+4 时间加权风控
+逆向选择风险集中出现在特定时段：宏观数据公布前后、开盘收盘竞价时段、衍生品到期交割日、大额OTC清算前后。
+可以将上述时段需将价差放大至基准1.5至3倍，挂单量缩减至原有30%至50%。
+
+adverse_selection_cost = sum(losses_from_informed_trades) / total_trades
+逆向选择成本 = 知情交易导致的亏损总和 / 总交易笔数
+Adverse Selection Cost = Σ(Losses from Informed Trades) / Total Trades
+
+pnl_attribution = {'spread_pnl': spread_pnl, 'adverse_selection_pnl': adverse_pnl, 'inventory_pnl': inventory_pnl}
+盈亏归因字典 = {' 价差收益 ': 价差盈亏，' 逆向选择盈亏 ': 知情交易损耗，' 库存损益 ': 持仓浮动盈亏}
+
+total_pnl = spread_pnl + adverse_selection_pnl + inventory_pnl
+总盈亏 = 价差收益 + 逆向选择盈亏 + 库存损益
+
+spread = base_spread * (1 + adverse_selection_risk)
+调整后价差 = 基础价差 × (1 + 逆向选择风险系数)
+adjusted_spread = base_spread × (1 + adverse_selection_risk)
+
+
+十八，夏普比率 + 最大回撤(Sharpe Ratio+Max Drawdown)
+夏普比率 
+概念：衡量策略单位风险获得的超额收益，用于评价做市策略收益性价比与稳定性。
+Sharpe_Ratio = (策略年化收益率 - 无风险利率) / 策略年化波动率
+Sharpe Ratio = (Annualized Portfolio Return - Risk-Free Rate) / Annualized Portfolio Standard Deviation
+指标评级标准
+Sharpe ＞ 1.0，策略表现合格
+Sharpe ＞ 2.0，策略表现优秀
+Sharpe ＞ 3.0，大概率为回测失真，实盘极难实现
+无风险利率(例）:US10Y 
+指标缺陷:夏普比率仅统计收益波动幅度，不识别极端尾部风险，无法单独作为策略风控依据，必须搭配最大回撤使用
+
+最大回撤
+概念：统计策略净值从历史峰值回落的最大下跌幅度，是衡量做市策略极端风险、爆仓风险的核心指标。
+drawdown_t = (value_at_peak - value_at_t) / value_at_peak
+时点回撤 = （历史最高净值 - 当前净值） / 历史最高净值
+Drawdown at time t = (Peak Equity - Current Equity) / Peak Equity
+
+max_drawdown = max (drawdown_1, drawdown_2, ..., drawdown_t)
+最大回撤 = 全周期所有时点回撤的最大值
+Maximum Drawdown = the highest drawdown across all time periods
+
+核心规则:最大回撤计算基准为历史最高净值，而非初始本金，可真实反映策略最大浮亏压力与极端风险水平
+核心结论：永远夏普+最大回撤一起看。Calmar Ratio（年化收益/最大回撤）是同时考虑两者的一个综合指标，Calmar > 1.0算不错
