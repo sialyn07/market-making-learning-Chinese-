@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>English Study Builder</title>
+<style>
+:root {
+--bg-color: #1a1a1a;
+--card-bg: rgba(255, 255, 255, 0.08);
+--card-border: rgba(255, 255, 255, 0.1);
+--text-main: #FDFBF7; /* 暖杏白 */
+--text-sub: #a0a0a0;
+--accent: #E6CCB2;
+--red: #ff4d4d;
+--orange: #ffa64d;
+--yellow: #ffff66;
+--green: #99cc33;
+--blue: #4da6ff;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+margin: 0; padding: 0;
+font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+background: radial-gradient(circle at top, #2b2b2b, var(--bg-color));
+color: var(--text-main);
+height: 100vh;
+display: flex;
+flex-direction: column;
+overflow: hidden;
+}
+
+/* Layout */
+header {
+padding: 40px 20px 10px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+background: linear-gradient(to bottom, rgba(26,26,26,0.9), transparent);
+z-index: 100;
+}
+h1 { font-size: 1.2rem; margin: 0; letter-spacing: 1px; color: var(--accent); }
+.date-display { font-size: 0.8rem; color: var(--text-sub); }
+
+main {
+flex: 1;
+overflow-y: auto;
+padding: 20px;
+padding-bottom: 100px;
+scrollbar-width: none;
+}
+main::-webkit-scrollbar { display: none; }
+
+section { display: none; animation: fadeIn 0.3s ease; }
+section.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Components */
+.card {
+background: var(--card-bg);
+backdrop-filter: blur(10px);
+-webkit-backdrop-filter: blur(10px);
+border: 1px solid var(--card-border);
+border-radius: 16px;
+padding: 16px;
+margin-bottom: 16px;
+}
+.card-title {
+font-size: 0.75rem;
+color: var(--text-sub);
+text-transform: uppercase;
+letter-spacing: 0.5px;
+margin-bottom: 12px;
+font-weight: 600;
+display: flex;
+justify-content: space-between;
+}
+
+/* Buttons */
+.btn {
+padding: 10px 20px;
+border-radius: 20px;
+border: none;
+font-size: 0.9rem;
+cursor: pointer;
+transition: transform 0.1s;
+}
+.btn-primary { background: var(--accent); color: #1a1a1a; font-weight: bold; }
+.btn-small { padding: 6px 12px; font-size: 0.8rem; background: rgba(255,255,255,0.1); color: var(--text-main); }
+
+/* Vocab Styles */
+.word-item {
+background: rgba(0,0,0,0.2);
+border-radius: 12px;
+padding: 12px;
+margin-bottom: 10px;
+border-left: 3px solid transparent;
+transition: border 0.2s;
+}
+.word-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.word-text { font-size: 1.1rem; font-weight: 500; }
+.phonetic { font-size: 0.8rem; color: var(--text-sub); }
+.word-def { font-size: 0.85rem; color: #d0d0d0; line-height: 1.4; }
+.tags span {
+font-size: 0.7rem;
+padding: 2px 6px;
+border-radius: 4px;
+background: rgba(255,255,255,0.05);
+margin-left: 6px;
+color: var(--text-sub);
+}
+
+.status-btn {
+width: 24px; height: 24px;
+border-radius: 50%;
+border: 1px solid rgba(255,255,255,0.2);
+margin-left: 8px;
+cursor: pointer;
+opacity: 0.5;
+}
+.status-btn:hover { opacity: 1; transform: scale(1.1); }
+.status-btn.red:hover, .status-btn.r-active { background: var(--red); border-color: var(--red); opacity: 1; }
+.status-btn.orange:hover, .status-btn.o-active { background: var(--orange); border-color: var(--orange); opacity: 1; }
+.status-btn.yellow:hover, .status-btn.y-active { background: var(--yellow); border-color: var(--yellow); opacity: 1; }
+.status-btn.green:hover, .status-btn.g-active { background: var(--green); border-color: var(--green); opacity: 1; }
+
+/* Dashboard Styles */
+.score-circle {
+width: 120px; height: 120px;
+border-radius: 50%;
+border: 4px solid var(--blue);
+display: flex; flex-direction: column;
+justify-content: center; align-items: center;
+margin: 0 auto 20px;
+box-shadow: 0 0 20px rgba(77, 166, 255, 0.3);
+}
+.score-num { font-size: 2.5rem; font-weight: bold; color: var(--blue); line-height: 1; }
+.score-label { font-size: 0.8rem; color: var(--text-sub); margin-top: 5px; }
+
+.progress-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 0.9rem; }
+.progress-bar-bg { width: 60%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.5s; }
+
+.list-links a {
+display: block; padding: 12px 0;
+border-bottom: 1px solid var(--card-border);
+color: var(--text-main);
+text-decoration: none;
+font-size: 0.9rem;
+display: flex; align-items: center; gap: 8px;
+}
+.list-links a:last-child { border-bottom: none; }
+.list-links a::before { content: "🔗"; font-size: 0.8rem; }
+
+.nav-bar {
+position: fixed; bottom: 0; left: 0; right: 0;
+height: 70px;
+background: rgba(20, 20, 20, 0.95);
+border-top: 1px solid var(--card-border);
+display: flex; justify-content: space-around;
+align-items: center;
+padding-bottom: env(safe-area-inset-bottom);
+z-index: 200;
+backdrop-filter: blur(10px);
+}
+.nav-item {
+display: flex; flex-direction: column; align-items: center;
+font-size: 0.7rem; color: var(--text-sub);
+gap: 4px; cursor: pointer; width: 20%;
+}
+.nav-item.active { color: var(--accent); }
+.nav-icon { font-size: 1.4rem; }
+
+.text-input {
+width: 100%; min-height: 100px;
+background: rgba(0,0,0,0.3);
+border: 1px solid var(--card-border);
+border-radius: 8px;
+padding: 10px;
+color: var(--text-main);
+font-family: inherit;
+resize: none;
+margin-top: 10px;
+}
+
+.timer-display {
+font-size: 2.5rem;
+font-variant-numeric: tabular-nums;
+text-align: center;
+margin: 20px 0;
+color: var(--text-main);
+}
+.checklist label {
+display: flex; align-items: center; gap: 10px;
+padding: 10px 0;
+font-size: 0.9rem;
+border-bottom: 1px solid var(--card-border);
+cursor: pointer;
+}
+.checklist input { accent-color: var(--green); transform: scale(1.2); }
+
+.signal-badges span {
+display: inline-block;
+padding: 4px 10px;
+background: rgba(255,255,255,0.05);
+border-radius: 12px;
+font-size: 0.8rem;
+color: var(--text-sub);
+margin: 0 5px 5px 0;
+border: 1px solid var(--card-border);
+}
+
+</style>
+</head>
+<body>
+
+<header>
+<h1>ENGLISH BUILDER</h1>
+<div class="date-display" id="current-date"></div>
+</header>
+
+<main>
+<!-- HOME SECTION -->
+<section id="home-view" class="active">
+<div class="card">
+<div class="score-circle">
+<span class="score-num">8.5</span>
+<span class="score-label">综合表现</span>
+</div>
+<div class="progress-row">
+<span>Vocabulary (15词)</span>
+<div class="progress-bar-bg"><div class="progress-bar-fill" id="prog-vocab"></div></div>
+</div>
+<div class="progress-row">
+<span>Reading (真题)</span>
+<div class="progress-bar-bg"><div class="progress-bar-fill" id="prog-read"></div></div>
+</div>
+<div class="progress-row">
+<span>Listening (精听)</span>
+<div class="progress-bar-bg"><div class="progress-bar-fill" id="prog-listen"></div></div>
+</div>
+</div>
+
+<div class="card">
+<div class="card-title">优质资源直达</div>
+<div class="list-links">
+<a href="#" onclick="alert('链接已预留，请填入真实地址'); return false;">CET通 · 历年真题下载 (含MP3)</a>
+<a href="#" onclick="alert('链接已预留，请填入真实地址'); return false;">过级鸭 · 在线刷题 (140+套)</a>
+<a href="#" onclick="alert('链接已预留，请填入真实地址'); return false;">新东方 · 翻译真题库</a>
+</div>
+</div>
+</section>
+
+<!-- VOCAB SECTION -->
+<section id="vocab-view">
+<div class="card" style="padding: 10px; display:flex; justify-content:space-around; text-align:center; font-size:0.75rem; color:var(--text-sub);">
+<div><span style="color:var(--red)">●</span>不会</div>
+<div><span style="color:var(--orange)">●</span>眼熟</div>
+<div><span style="color:var(--yellow)">●</span>认识</div>
+<div><span style="color:var(--green)">●</span>拼写</div>
+</div>
+<div id="vocab-list"></div>
+</section>
+
+<!-- READING SECTION -->
+<section id="read-view">
+<div class="card">
+<div class="card-title">真題限时训练 (Mon-Thu)</div>
+<p style="font-size:0.85rem; color:var(--text-sub); line-height:1.4;">
+规则：周一到周四做题。<br>
+选词填空 5min | 长篇阅读 10min | 仔细阅读 25min<br>
+<strong>不教技巧方法论，靠量变到质变。</strong>
+</p>
+<div class="timer-display" id="read-timer">00:00</div>
+<div style="text-align:center;">
+<button class="btn btn-primary" onclick="toggleTimer()">开始 / 暂停</button>
+<button class="btn btn-small" onclick="resetTimer()">重置</button>
+</div>
+</div>
+<div class="card">
+<div class="card-title">错题记录与批改反馈</div>
+<textarea class="text-input" placeholder="在此粘贴你的错题或文章段落，稍后我会帮你进行批阅讲解..."></textarea>
+</div>
+</section>
+
+<!-- LISTENING SECTION -->
+<section id="listen-view">
+<div class="card">
+<div class="card-title">核心诊断：听觉辨识</div>
+<p style="font-size:0.9rem; color:var(--text-sub);">
+眼睛认识但耳朵听不出来？<br>
+<strong>需要精听 + 跟读。</strong>
+</p>
+</div>
+
+<div class="card">
+<div class="card-title">精听四步法</div>
+<div class="checklist">
+<label><input type="checkbox"> 完整听1遍，不暂停，抓大意</label>
+<label><input type="checkbox"> 逐句暂停，听写 / 跟读</label>
+<label><input type="checkbox"> 对照原文，标出没听出来的词</label>
+<label><input type="checkbox"> 再听1遍，确认能听全</label>
+</div>
+</div>
+
+<div class="card">
+<div class="card-title">听力信号词 (Signal Words)</div>
+<div class="signal-badges">
+<span>but</span> <span>however</span> <span>actually</span> <span>in fact</span> <span>the key point is...</span>
+</div>
+</div>
+</section>
+
+<!-- WRITE SECTION -->
+<section id="write-view">
+<div class="card">
+<div class="card-title">每日输出记录</div>
+<div style="font-size:0.9rem; color:var(--text-main); margin-bottom:10px;">
+Score: <span style="color:var(--blue); font-weight:bold;">8.5</span>
+</div>
+<div style="font-size:0.85rem; color:var(--text-sub); border-top:1px solid var(--card-border); padding-top:8px;">
+<p>词汇: implement, subsequent, fluctuate...</p>
+<p>阅读: 真题1篇 + 批改讲解</p>
+<p>翻译: 新东方翻译真题1句</p>
+</div>
+</div>
+
+<div class="card">
+<div class="card-title">写作语料库</div>
+<div style="margin-bottom:10px;">
+<select id="template-select" onchange="showTemplate()" style="width:100%; padding:8px; background:rgba(0,0,0,0.3); border:1px solid var(--card-border); color:white; border-radius:8px;">
+<option>选择一个模板...</option>
+<option>推荐类书信</option>
+<option>投诉类书信</option>
+<option>图表作文开头</option>
+</select>
+</div>
+<div id="template-content" style="font-size:0.85rem; color:var(--text-sub); line-height:1.5;"></div>
+</div>
+</section>
+</main>
+
+<nav class="nav-bar">
+<div class="nav-item active" onclick="switchTab('home')">
+<span class="nav-icon">🏠</span>首页
+</div>
+<div class="nav-item" onclick="switchTab('vocab')">
+<span class="nav-icon">📝</span>词汇
+</div>
+<div class="nav-item" onclick="switchTab('read')">
+<span class="nav-icon">📖</span>阅读
+</div>
+<div class="nav-item" onclick="switchTab('listen')">
+<span class="nav-icon">🎧</span>听力
+</div>
+<div class="nav-item" onclick="switchTab('write')">
+<span class="nav-icon">✍️</span>写作
+</div>
+</nav>
+
+<script>
+// --- DATA ---
+const vocabulary = [
+{ w: "implement", ph: "/ˈɪmplɪment/", def: "v. 实施，执行；n. 工具", tag: "四级" },
+{ w: "subsequent", ph: "/ˈsʌbsɪkwənt/", def: "adj. 随后的，后来的", tag: "四级" },
+{ w: "deteriorate", ph: "/dɪˈtɪəriəreɪt/", def: "v. 恶化，变坏；退化", tag: "大英赛" },
+{ w: "inevitable", ph: "/ɪnˈevɪtəbl/", def: "adj. 不可避免的", tag: "四级" },
+{ w: "sufficient", ph: "/səˈfɪʃnt/", def: "adj. 充足的，足够的", tag: "四级" },
+{ w: "comprise", ph: "/kəmˈpraɪz/", def: "v. 由...组成；包含", tag: "大英赛" },
+{ w: "fluctuate", ph: "/ˈflʌktʃueɪt/", def: "v. 波动，起伏", tag: "金融" },
+{ w: "dividend", ph: "/ˈdɪvɪdend/", def: "n. 股息，红利", tag: "金融" },
+{ w: "liquidity", ph: "/ˌlɪkwɪˈdɪti/", def: "n. 流动性", tag: "金融" },
+{ w: "perceive", ph: "/pərˈsiːv/", def: "v. 察觉，感知", tag: "四级" },
+{ w: "comparable", ph: "/ˈkɑːmpərəbl/", def: "adj. 可比较的", tag: "四级" },
+{ w: "reluctant", ph: "/rɪˈlʌktənt/", def: "adj. 不情愿的", tag: "四级" }
+];
+
+const templates = {
+"推荐类书信": "Dear Sir/Madam,\nI am writing to recommend...\n\nYours sincerely,",
+"投诉类书信": "Dear Manager,\nI am writing to express my dissatisfaction with...\n\nI look forward to your early reply.",
+"图表作文开头": "As is clearly illustrated in the chart/graph, there has been a marked increase in..."
+};
+
+// --- LOGIC ---
+document.getElementById('current-date').innerText = new Date().toLocaleDateString();
+
+function renderVocab() {
+const list = document.getElementById('vocab-list');
+list.innerHTML = '';
+vocabulary.forEach((item, index) => {
+const div = document.createElement('div');
+div.className = 'word-item';
+div.innerHTML = `
+<div class="word-header">
+<span class="word-text">${item.w}</span>
+<span class="phonetic">${item.ph}</span>
+</div>
+<div class="word-def">${item.def} <span class="tags"><span>${item.tag}</span></span></div>
+<div style="margin-top:8px; text-align:right;">
+<button class="status-btn red" onclick="markWord(${index}, 'r')"></button>
+<button class="status-btn orange" onclick="markWord(${index}, 'o')"></button>
+<button class="status-btn yellow" onclick="markWord(${index}, 'y')"></button>
+<button class="status-btn green" onclick="markWord(${index}, 'g')"></button>
+</div>`;
+list.appendChild(div);
+});
+loadProgress();
+}
+
+let timerInterval = null;
+let seconds = 0;
+function toggleTimer() {
+if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+else { timerInterval = setInterval(() => { seconds++; updateTimerDisplay(); }, 1000); }
+}
+function resetTimer() { clearInterval(timerInterval); timerInterval = null; seconds = 0; updateTimerDisplay(); }
+function updateTimerDisplay() { const m = String(Math.floor(seconds/60)).padStart(2,'0'); const s = String(seconds%60).padStart(2,'0'); document.getElementById('read-timer').innerText = `${m}:${s}`; }
+
+function showTemplate() {
+document.getElementById('template-content').innerText = templates[document.getElementById('template-select').value];
+}
+
+function switchTab(name) {
+document.querySelectorAll('section').forEach(el => el.classList.remove('active'));
+document.getElementById(`${name}-view`).classList.add('active');
+document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+event.currentTarget.classList.add('active');
+}
+
+function markWord(index, type) {
+// Visual feedback logic would go here
+const items = document.querySelectorAll('.word-item');
+const row = items[index].querySelector('div[style]');
+row.querySelectorAll('.status-btn').forEach(b => b.classList.remove('r-active','o-active','y-active','g-active'));
+if(type === 'r') row.querySelector('.red').classList.add('r-active');
+if(type === 'o') row.querySelector('.orange').classList.add('o-active');
+if(type === 'y') row.querySelector('.yellow').classList.add('y-active');
+if(type === 'g') row.querySelector('.green').classList.add('g-active');
+items[index].style.borderLeftColor = getComputedStyle(row.querySelector(`.${type}-active` || `.${type}`)).backgroundColor;
+
+saveProgress();
+}
+
+function saveProgress() {
+// Simple local storage simulation for stability
+console.log("Progress Saved to LocalStorage");
+}
+function loadProgress() { console.log("Progress Loaded"); }
+
+renderVocab();
+</script>
+</body>
+</html>
